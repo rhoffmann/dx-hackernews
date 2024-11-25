@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::PreviewState;
+use crate::{api::get_stories, PreviewState};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StoryPageData {
@@ -62,20 +62,23 @@ pub struct StoryItem {
 
 #[component]
 pub fn Stories() -> Element {
-    rsx! {
-        StoryListing {
-            story: StoryItem {
-                id:0,
-                title: "hello hackernews".to_string(),
-                url: None,
-                text: None,
-                by: "Author".to_string(),
-                score: 0,
-                descendants:0,
-                time: chrono::Utc::now(),
-                kids: vec![],
-                r#type: "".to_string()
+    let stories = use_resource(move || get_stories(10));
+
+    match &*stories.read_unchecked() {
+        Some(Ok(list)) => {
+            rsx! {
+                div {
+                    for story in list {
+                        StoryListing { story: story.clone() }
+                    }
+                }
             }
+        }
+        Some(Err(err)) => {
+            rsx! { "An error occured while fetching stories {err}" }
+        }
+        None => {
+            rsx! { "Loading items "}
         }
     }
 }

@@ -1,6 +1,6 @@
 use futures::future::join_all;
 
-use crate::StoryItem;
+use crate::{CommentData, StoryItem, StoryPageData};
 
 pub static BASE_API_URL: &str = "https://hacker-news.firebaseio.com/v0/";
 pub static ITEM_API: &str = "item/";
@@ -28,4 +28,45 @@ pub async fn get_stories(count: usize) -> Result<Vec<StoryItem>, reqwest::Error>
         .collect();
 
     Ok(stories)
+}
+
+pub async fn get_story(id: i64) -> Result<StoryPageData, reqwest::Error> {
+    let url = format!("{}{}{}.json", BASE_API_URL, ITEM_API, id);
+
+    let mut story = reqwest::get(&url).await?.json::<StoryPageData>().await?;
+    let comment_futures = story.item.kids.iter().map(|&id| get_comment(id));
+
+    let comments = join_all(comment_futures)
+        .await
+        .into_iter()
+        .filter_map(|c| c.ok())
+        .collect();
+
+    story.comments = comments;
+
+    Ok(story)
+}
+
+#[async_recursion::async_recursion(?Send)]
+pub async fn get_comment_with_depth(id: i64, depth: i64) -> Result<CommentData, reqwest::Error> {
+    let url = format!("{}{}{}.json", BASE_API_URL, ITEM_API, id);
+    let mut comment = reqwest::get(&url).await?.json::<CommentData>().await?;
+    if depth > 0 {
+        let sub_comments_futures = comment
+            .kids
+            .iter()
+            .map(|story_id| get_comment_with_depth(*story_id, depth - 1));
+
+        comment.sub_comments = join_all(sub_comments_futures)
+            .await
+            .into_iter()
+            .filter_map(|c| c.ok())
+            .collect();
+    }
+    Ok(comment)
+}
+
+pub async fn get_comment(comment_id: i64) -> Result<CommentData, reqwest::Error> {
+    let comment = get_comment_with_depth(comment_id, COMMENT_DEPTH).await?;
+    Ok(comment)
 }
