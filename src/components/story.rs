@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::PreviewState;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StoryPageData {
     #[serde(flatten)]
@@ -80,6 +82,8 @@ pub fn Stories() -> Element {
 
 #[component]
 pub fn StoryListing(story: ReadOnlySignal<StoryItem>) -> Element {
+    let mut preview_state = consume_context::<Signal<PreviewState>>();
+
     let StoryItem {
         title,
         url,
@@ -114,6 +118,12 @@ pub fn StoryListing(story: ReadOnlySignal<StoryItem>) -> Element {
     rsx! {
         div {
             class: "p-4 relative",
+            onmouseenter: move |_evt| {
+                *preview_state.write() = PreviewState::Loaded(Box::new(StoryPageData{
+                    item: story(),
+                    comments: vec![]
+                }));
+            },
             div {
                 class: "text-xl text-blue-500",
                 a { href: url, "{title}"}

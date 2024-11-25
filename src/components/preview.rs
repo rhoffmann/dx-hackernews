@@ -3,7 +3,7 @@ use dioxus::prelude::*;
 use crate::{CommentData, StoryPageData};
 
 #[derive(Clone, Debug)]
-enum PreviewState {
+pub enum PreviewState {
     Unset,
     Loading,
     Loaded(Box<StoryPageData>),
@@ -11,8 +11,8 @@ enum PreviewState {
 
 #[component]
 pub fn Preview() -> Element {
-    let preview_state = PreviewState::Unset;
-    match preview_state {
+    let preview_state = consume_context::<Signal<PreviewState>>();
+    match preview_state() {
         PreviewState::Unset => rsx! {"Hover over a story to preview it here"},
         PreviewState::Loading => rsx! {"Loading..."},
         PreviewState::Loaded(story) => {
